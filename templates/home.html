@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}}</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px; 
+        }
+        h1 { color: #333; }
+        .info { 
+            background: #f0f0f0; 
+            padding: 15px; 
+            border-radius: 5px; 
+        }
+        a { 
+            color: #0066cc; 
+            text-decoration: none; 
+        }
+        a:hover { 
+            text-decoration: underline; 
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Your {{.Title}}</h1>
+    <div class="info">
+        <p>Server is running successfully!</p>
+        <p>Current time: {{.CurrentTime}}</p>
+        <p>
+            <a href="/health">Health Check</a> | 
+            <a href="/api/data">API Example</a>
+        </p>
+    </div>
+</body>
+</html>
