@@ -11,7 +11,7 @@ A simple interface for reading the top 10 daily Hacker News articles from [Hacke
 ```
 go mod download
 
-CGO_ENABLED=0 GOOS=linux go build -o hn-reader
+CGO_ENABLED=1 GOOS=linux go build -o hn-reader
 
 docker build -t hn-reader .
 
