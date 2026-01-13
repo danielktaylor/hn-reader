@@ -401,6 +401,17 @@ func main() {
 	http.HandleFunc("/health", loggingMiddleware(logger, healthHandler))
 	http.HandleFunc("/api/data", loggingMiddleware(logger, apiDataHandler))
 
+	// Start automatic refresh ticker (every 2 hours)
+	ticker := time.NewTicker(2 * time.Hour)
+	defer ticker.Stop()
+
+	go func() {
+		for range ticker.C {
+			logger.Println("Automatic feed refresh triggered")
+			processFeed(logger)
+		}
+	}()
+
 	// Server configuration
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -409,6 +420,7 @@ func main() {
 
 	addr := fmt.Sprintf(":%s", port)
 	logger.Printf("Server listening on http://localhost%s", addr)
+	logger.Println("Automatic feed refresh enabled (every 2 hours)")
 
 	// Start server
 	if err := http.ListenAndServe(addr, nil); err != nil {
