@@ -1,7 +1,11 @@
-FROM alpine:latest
+FROM debian:trixie-slim
 
-# Install SQLite runtime library (required by go-sqlite3)
-RUN apk add --no-cache sqlite-libs ca-certificates
+# Install SQLite runtime library and ca-certificates
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libsqlite3-0 \
+    ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
