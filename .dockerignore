@@ -5,6 +5,7 @@ go.sum
 
 # Database (will be created at runtime)
 *.db
+db/
 
 # Git
 .git
@@ -15,3 +16,8 @@ go.sum
 
 # Documentation
 README.md
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
