@@ -1,53 +1,39 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"html/template"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// Logger wraps the standard logger with additional context
-type Logger struct {
-	*log.Logger
-}
-
-// NewLogger creates a new logger instance
-func NewLogger() *Logger {
-	return &Logger{
-		Logger: log.New(os.Stdout, "", log.LstdFlags),
-	}
-}
-
-// LogRequest logs HTTP request details
-func (l *Logger) LogRequest(r *http.Request, status int, duration time.Duration) {
-	l.Printf("[%s] %s %s - Status: %d - Duration: %v - RemoteAddr: %s",
-		r.Method,
-		r.URL.Path,
-		r.Proto,
-		status,
-		duration,
-		r.RemoteAddr,
-	)
-}
-
 // loggingMiddleware wraps handlers to add request logging
-func loggingMiddleware(logger *Logger, next http.HandlerFunc) http.HandlerFunc {
+func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next(rw, r)
 		duration := time.Since(start)
-		logger.LogRequest(r, rw.statusCode, duration)
+		slog.Info("HTTP request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rw.statusCode,
+			"duration", duration,
+			"remote_addr", r.RemoteAddr,
+		)
 	}
 }
 
@@ -99,19 +85,32 @@ type TemplateData struct {
 // Database global
 var db *sql.DB
 
-// Last sync time
-var lastSyncTime time.Time
+// Last sync time with mutex for thread safety
+var (
+	lastSyncTime time.Time
+	syncTimeMu   sync.RWMutex
+)
 
 // Templates holds parsed templates
 var templates *template.Template
 
+// HTTP client with timeout
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
 // initDB initializes the SQLite database
-func initDB(logger *Logger) error {
+func initDB() error {
 	var err error
 	db, err = sql.Open("sqlite3", "./hn_reader.db")
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
+
+	// Set connection pool limits for thread safety
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	// Create articles table
 	createTableSQL := `CREATE TABLE IF NOT EXISTS articles (
@@ -130,24 +129,24 @@ func initDB(logger *Logger) error {
 		return fmt.Errorf("failed to create table: %w", err)
 	}
 
-	logger.Println("Database initialized successfully")
+	slog.Info("Database initialized successfully")
 	return nil
 }
 
 // loadTemplates loads all HTML templates
-func loadTemplates(logger *Logger) error {
+func loadTemplates() error {
 	var err error
 	templates, err = template.ParseGlob(filepath.Join("templates", "*.html"))
 	if err != nil {
 		return fmt.Errorf("failed to load templates: %w", err)
 	}
-	logger.Println("Templates loaded successfully")
+	slog.Info("Templates loaded successfully")
 	return nil
 }
 
 // fetchAndParseRSS fetches the RSS feed and parses it
-func fetchAndParseRSS(logger *Logger) (*RSS, error) {
-	resp, err := http.Get("https://www.daemonology.net/hn-daily/index.rss")
+func fetchAndParseRSS() (*RSS, error) {
+	resp, err := httpClient.Get("https://www.daemonology.net/hn-daily/index.rss")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch RSS: %w", err)
 	}
@@ -164,7 +163,7 @@ func fetchAndParseRSS(logger *Logger) (*RSS, error) {
 		return nil, fmt.Errorf("failed to parse RSS: %w", err)
 	}
 
-	logger.Printf("Successfully fetched RSS feed with %d items", len(rss.Channel.Items))
+	slog.Info("Successfully fetched RSS feed", "items", len(rss.Channel.Items))
 	return &rss, nil
 }
 
@@ -220,27 +219,32 @@ func parseArticlesFromDescription(description, date string) []Article {
 	return articles
 }
 
-// saveArticle saves an article to the database
-func saveArticle(article Article, logger *Logger) error {
-	_, err := db.Exec(`
+// saveArticle saves an article to the database and returns whether it was inserted
+func saveArticle(article Article) (bool, error) {
+	result, err := db.Exec(`
 		INSERT OR IGNORE INTO articles (date, article_link, comment_link, title)
 		VALUES (?, ?, ?, ?)
 	`, article.Date, article.ArticleLink, article.CommentLink, article.Title)
 
 	if err != nil {
-		return fmt.Errorf("failed to save article: %w", err)
+		return false, fmt.Errorf("failed to save article: %w", err)
 	}
 
-	return nil
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return rowsAffected > 0, nil
 }
 
 // processFeed fetches and processes the RSS feed
-func processFeed(logger *Logger) {
-	logger.Println("Starting RSS feed processing...")
+func processFeed() {
+	slog.Info("Starting RSS feed processing")
 
-	rss, err := fetchAndParseRSS(logger)
+	rss, err := fetchAndParseRSS()
 	if err != nil {
-		logger.Printf("Error fetching RSS: %v", err)
+		slog.Error("Error fetching RSS", "error", err)
 		return
 	}
 
@@ -249,17 +253,27 @@ func processFeed(logger *Logger) {
 		articles := parseArticlesFromDescription(item.Description, item.PubDate)
 
 		for _, article := range articles {
-			err := saveArticle(article, logger)
+			inserted, err := saveArticle(article)
 			if err != nil {
-				logger.Printf("Error saving article: %v", err)
-			} else {
+				slog.Error("Error saving article", "error", err, "title", article.Title)
+			} else if inserted {
 				newArticles++
 			}
 		}
 	}
 
+	syncTimeMu.Lock()
 	lastSyncTime = time.Now()
-	logger.Printf("Feed processing complete. Processed %d new articles", newArticles)
+	syncTimeMu.Unlock()
+
+	slog.Info("Feed processing complete", "new_articles", newArticles)
+}
+
+// getUnreadCount returns the count of unread articles
+func getUnreadCount() (int, error) {
+	var count int
+	err := db.QueryRow(`SELECT COUNT(*) FROM articles WHERE read = 0`).Scan(&count)
+	return count, err
 }
 
 // getAllArticles retrieves all unread articles from the database
@@ -309,30 +323,32 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 
 	articles, err := getAllArticles()
 	if err != nil {
-		log.Printf("Error fetching articles: %v", err)
+		slog.Error("Error fetching articles", "error", err)
 		articles = []Article{}
 	}
 
+	syncTimeMu.RLock()
+	syncTime := lastSyncTime
+	syncTimeMu.RUnlock()
+
 	data := TemplateData{
 		Title:        "HN Reader",
-		LastSyncTime: lastSyncTime,
+		LastSyncTime: syncTime,
 		Articles:     articles,
 	}
 
 	if err := templates.ExecuteTemplate(w, "home.html", data); err != nil {
 		http.Error(w, "Error rendering template", http.StatusInternalServerError)
-		log.Printf("Template error: %v", err)
+		slog.Error("Template error", "error", err)
 	}
 }
 
-func syncHandler(logger *Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Run the feed processing asynchronously
-		go processFeed(logger)
+func syncHandler(w http.ResponseWriter, r *http.Request) {
+	// Run the feed processing asynchronously
+	go processFeed()
 
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status": "sync started", "timestamp": "%s"}`, time.Now().Format(time.RFC3339))
-	}
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"status": "sync started", "timestamp": "%s"}`, time.Now().Format(time.RFC3339))
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -371,7 +387,7 @@ func markReadHandler(w http.ResponseWriter, r *http.Request) {
 	err := markArticleRead(id, read)
 	if err != nil {
 		http.Error(w, "Failed to update article", http.StatusInternalServerError)
-		log.Printf("Error updating article: %v", err)
+		slog.Error("Error updating article", "error", err, "id", id)
 		return
 	}
 
@@ -380,26 +396,48 @@ func markReadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	logger := NewLogger()
-	logger.Println("Starting web server...")
+	// Initialize structured logger
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
+
+	slog.Info("Starting web server")
 
 	// Initialize database
-	if err := initDB(logger); err != nil {
-		logger.Fatal(err)
+	if err := initDB(); err != nil {
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	// Load templates
-	if err := loadTemplates(logger); err != nil {
-		logger.Fatal(err)
+	if err := loadTemplates(); err != nil {
+		slog.Error("Failed to load templates", "error", err)
+		os.Exit(1)
 	}
 
 	// Register routes with logging middleware
-	http.HandleFunc("/", loggingMiddleware(logger, homeHandler))
-	http.HandleFunc("/sync", loggingMiddleware(logger, syncHandler(logger)))
-	http.HandleFunc("/mark-read", loggingMiddleware(logger, markReadHandler))
-	http.HandleFunc("/health", loggingMiddleware(logger, healthHandler))
-	http.HandleFunc("/api/data", loggingMiddleware(logger, apiDataHandler))
+	http.HandleFunc("/", loggingMiddleware(homeHandler))
+	http.HandleFunc("/sync", loggingMiddleware(syncHandler))
+	http.HandleFunc("/mark-read", loggingMiddleware(markReadHandler))
+	http.HandleFunc("/health", loggingMiddleware(healthHandler))
+	http.HandleFunc("/api/data", loggingMiddleware(apiDataHandler))
+
+	// Server configuration
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := fmt.Sprintf(":%s", port)
+
+	// Create HTTP server
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      nil,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 
 	// Start automatic refresh ticker (every 2 hours)
 	ticker := time.NewTicker(2 * time.Hour)
@@ -407,23 +445,36 @@ func main() {
 
 	go func() {
 		for range ticker.C {
-			logger.Println("Automatic feed refresh triggered")
-			processFeed(logger)
+			slog.Info("Automatic feed refresh triggered")
+			processFeed()
 		}
 	}()
 
-	// Server configuration
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// Setup graceful shutdown
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	addr := fmt.Sprintf(":%s", port)
-	logger.Printf("Server listening on http://localhost%s", addr)
-	logger.Println("Automatic feed refresh enabled (every 2 hours)")
+	go func() {
+		sig := <-shutdown
+		slog.Info("Shutdown signal received", "signal", sig)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			slog.Error("Server shutdown error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	slog.Info("Server listening", "address", "http://localhost"+addr)
+	slog.Info("Automatic feed refresh enabled", "interval", "2 hours")
 
 	// Start server
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		logger.Fatal("Server failed to start: ", err)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("Server failed to start", "error", err)
+		os.Exit(1)
 	}
+
+	slog.Info("Server stopped gracefully")
 }
