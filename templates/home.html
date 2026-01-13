@@ -2,122 +2,320 @@
 <html>
 <head>
     <title>{{.Title}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 1000px; 
-            margin: 50px auto; 
-            padding: 20px; 
-            background: #f5f5f5;
+        * {
+            -webkit-tap-highlight-color: transparent;
         }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 12px;
+            background: #f5f5f5;
+            font-size: 16px;
+        }
+        
         h1 { 
             color: #333; 
-            margin-bottom: 10px;
+            margin-bottom: 6px;
+            font-size: 24px;
         }
+        
+        h2 {
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+        
         .header {
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
+        
         .info { 
             color: #666;
             font-size: 14px;
+            line-height: 1.5;
         }
+        
         .sync-button {
             background: #ff6600;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 12px 20px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             margin-top: 10px;
+            width: 100%;
+            font-weight: 600;
         }
-        .sync-button:hover {
-            background: #ff8533;
+        
+        .sync-button:active {
+            background: #e55a00;
         }
+        
         .articles {
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 16px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
+        
         .article {
-            padding: 15px;
+            padding: 16px 0;
             border-bottom: 1px solid #eee;
             transition: background 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 15px;
         }
+        
         .article:last-child {
             border-bottom: none;
         }
+        
         .article.highlighted {
             background: #fff3cd;
+            margin: 0 -16px;
+            padding: 16px;
         }
+        
         .article-content {
-            flex: 1;
+            margin-bottom: 10px;
         }
+        
         .article-title {
-            font-size: 16px;
+            font-size: 17px;
             margin-bottom: 8px;
+            line-height: 1.4;
         }
+        
         .article-title a {
             color: #0066cc;
             text-decoration: none;
+            display: block;
+            padding: 6px 0;
         }
-        .article-title a:hover {
-            text-decoration: underline;
+        
+        .article-title a:active {
+            opacity: 0.7;
         }
+        
         .article-meta {
-            font-size: 13px;
+            font-size: 14px;
             color: #666;
+            margin-bottom: 10px;
         }
+        
         .article-meta a {
             color: #ff6600;
             text-decoration: none;
             margin-left: 10px;
+            padding: 6px 10px;
+            display: inline-block;
         }
-        .article-meta a:hover {
-            text-decoration: underline;
+        
+        .article-meta a:active {
+            opacity: 0.7;
         }
+        
         .read-button {
             background: #28a745;
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 10px 16px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 12px;
-            white-space: nowrap;
+            font-size: 14px;
+            width: 100%;
+            font-weight: 600;
         }
-        .read-button:hover {
+        
+        .read-button:active {
             background: #218838;
         }
+        
         .read-button.unread {
             background: #6c757d;
         }
-        .read-button.unread:hover {
+        
+        .read-button.unread:active {
             background: #5a6268;
         }
+        
         .no-articles {
             text-align: center;
-            padding: 40px;
+            padding: 32px 16px;
             color: #999;
+            font-size: 16px;
         }
+        
         .status {
             margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
+            padding: 12px;
+            border-radius: 6px;
             display: none;
+            font-size: 14px;
         }
+        
         .status.success {
             background: #d4edda;
             color: #155724;
             display: block;
+        }
+        
+        .last-sync {
+            font-size: 13px;
+            color: #888;
+            margin-top: 6px;
+        }
+        
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 50px 20px;
+                background: #f5f5f5;
+                font-size: 14px;
+            }
+            
+            h1 {
+                margin-bottom: 10px;
+                font-size: 32px;
+            }
+            
+            h2 {
+                font-size: 24px;
+                margin-bottom: 15px;
+            }
+            
+            .header {
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .info {
+                font-size: 14px;
+            }
+            
+            .sync-button {
+                padding: 10px 20px;
+                border-radius: 4px;
+                font-size: 14px;
+                width: auto;
+                font-weight: normal;
+            }
+            
+            .sync-button:hover {
+                background: #ff8533;
+            }
+            
+            .sync-button:active {
+                background: #ff6600;
+            }
+            
+            .articles {
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .article {
+                padding: 15px 0;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+            
+            .article.highlighted {
+                margin: 0;
+                padding: 15px;
+            }
+            
+            .article-content {
+                flex: 1;
+                margin-bottom: 0;
+            }
+            
+            .article-title {
+                font-size: 16px;
+                margin-bottom: 8px;
+            }
+            
+            .article-title a {
+                display: inline;
+                padding: 0;
+            }
+            
+            .article-title a:hover {
+                text-decoration: underline;
+            }
+            
+            .article-title a:active {
+                opacity: 1;
+            }
+            
+            .article-meta {
+                font-size: 13px;
+                margin-bottom: 0;
+            }
+            
+            .article-meta a {
+                padding: 0;
+                margin-left: 10px;
+            }
+            
+            .article-meta a:hover {
+                text-decoration: underline;
+            }
+            
+            .article-meta a:active {
+                opacity: 1;
+            }
+            
+            .read-button {
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-size: 12px;
+                width: auto;
+                white-space: nowrap;
+                font-weight: normal;
+            }
+            
+            .read-button:hover {
+                background: #218838;
+            }
+            
+            .read-button:active {
+                background: #28a745;
+            }
+            
+            .read-button.unread:hover {
+                background: #5a6268;
+            }
+            
+            .read-button.unread:active {
+                background: #6c757d;
+            }
+            
+            .no-articles {
+                padding: 40px;
+            }
+            
+            .status {
+                padding: 10px;
+                border-radius: 4px;
+            }
+            
+            .last-sync {
+                font-size: 13px;
+                margin-top: 8px;
+            }
         }
     </style>
 </head>
@@ -125,15 +323,21 @@
     <div class="header">
         <h1>{{.Title}}</h1>
         <div class="info">
-            <p>Current time: {{.CurrentTime}}</p>
             <p>Unread articles: {{len .Articles}}</p>
+            {{if not .LastSyncTime.IsZero}}
+            <p class="last-sync">
+                Last sync: <span id="last-sync-time" data-time="{{.LastSyncTime.Format "2006-01-02T15:04:05Z07:00"}}"></span>
+            </p>
+            {{else}}
+            <p class="last-sync">Not synced yet</p>
+            {{end}}
             <button class="sync-button" onclick="syncFeed()">Sync Latest Feed</button>
             <div id="status" class="status"></div>
         </div>
     </div>
 
     <div class="articles">
-        <h2>Hacker News Articles</h2>
+        <h2>Articles</h2>
         {{if .Articles}}
             {{range .Articles}}
             <div class="article" id="article-{{.ID}}" data-read="false">
@@ -146,7 +350,7 @@
                         <a href="{{.CommentLink}}" target="_blank" onclick="highlightArticle({{.ID}})">comments</a>
                     </div>
                 </div>
-                <button class="read-button" onclick="toggleRead({{.ID}}, this)">Mark Read</button>
+                <button class="read-button" onclick="toggleRead({{.ID}}, this); event.stopPropagation();">Mark Read</button>
             </div>
             {{end}}
         {{else}}
@@ -178,12 +382,10 @@
         }
 
         function highlightArticle(id) {
-            // Clear all highlights
             document.querySelectorAll('.article').forEach(article => {
                 article.classList.remove('highlighted');
             });
             
-            // Highlight the clicked article
             const article = document.getElementById('article-' + id);
             if (article) {
                 article.classList.add('highlighted');
@@ -215,37 +417,57 @@
         }
 
         function formatRelativeDate(dateStr) {
-            // Parse the RFC1123 date from the RSS feed
             const articleDate = new Date(dateStr);
             const now = new Date();
-            
-            // Reset time to midnight for day comparison
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const articleDay = new Date(articleDate.getFullYear(), articleDate.getMonth(), articleDate.getDate());
             
             const diffTime = today - articleDay;
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             
-            if (diffDays === 0) {
-                return 'Today';
-            } else if (diffDays === 1) {
-                return 'Yesterday';
-            } else if (diffDays < 7) {
-                return `${diffDays} days ago`;
-            } else if (diffDays < 30) {
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays} days ago`;
+            if (diffDays < 30) {
                 const weeks = Math.floor(diffDays / 7);
                 return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-            } else {
-                return dateStr; // Fall back to original date for older items
             }
+            return dateStr;
         }
 
-        // Convert all dates on page load
+        function formatRelativeTime(timeStr) {
+            const syncTime = new Date(timeStr);
+            const now = new Date();
+            const diffMs = now - syncTime;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins === 1) return '1 minute ago';
+            if (diffMins < 60) return `${diffMins} minutes ago`;
+            if (diffHours === 1) return '1 hour ago';
+            if (diffHours < 24) return `${diffHours} hours ago`;
+            if (diffDays === 1) return '1 day ago';
+            return `${diffDays} days ago`;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.relative-date').forEach(span => {
                 const originalDate = span.dataset.date;
                 span.textContent = formatRelativeDate(originalDate);
             });
+            
+            const lastSyncElem = document.getElementById('last-sync-time');
+            if (lastSyncElem) {
+                const syncTime = lastSyncElem.dataset.time;
+                lastSyncElem.textContent = formatRelativeTime(syncTime);
+                
+                // Update every minute
+                setInterval(() => {
+                    lastSyncElem.textContent = formatRelativeTime(syncTime);
+                }, 60000);
+            }
         });
     </script>
 </body>

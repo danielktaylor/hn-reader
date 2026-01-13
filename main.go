@@ -91,13 +91,16 @@ type Article struct {
 
 // TemplateData holds data to pass to templates
 type TemplateData struct {
-	Title       string
-	CurrentTime string
-	Articles    []Article
+	Title        string
+	LastSyncTime time.Time
+	Articles     []Article
 }
 
 // Database global
 var db *sql.DB
+
+// Last sync time
+var lastSyncTime time.Time
 
 // Templates holds parsed templates
 var templates *template.Template
@@ -255,6 +258,7 @@ func processFeed(logger *Logger) {
 		}
 	}
 
+	lastSyncTime = time.Now()
 	logger.Printf("Feed processing complete. Processed %d new articles", newArticles)
 }
 
@@ -264,7 +268,7 @@ func getAllArticles() ([]Article, error) {
 		SELECT id, date, article_link, comment_link, title, read, created_at
 		FROM articles
 		WHERE read = 0
-		ORDER BY created_at DESC
+		ORDER BY created_at ASC, id ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -310,9 +314,9 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := TemplateData{
-		Title:       "HN Reader",
-		CurrentTime: time.Now().Format(time.RFC1123),
-		Articles:    articles,
+		Title:        "HN Reader",
+		LastSyncTime: lastSyncTime,
+		Articles:     articles,
 	}
 
 	if err := templates.ExecuteTemplate(w, "home.html", data); err != nil {
