@@ -6,13 +6,13 @@ A simple interface for reading the top 10 daily Hacker News articles from [Hacke
 
 > go run main.go
 
-## Building:
+## Deploying
 
 ```
 go mod download
-go build -o webapp
-```
 
-Then, to run: 
+CGO_ENABLED=1 GOOS=linux go build -o hn-reader
 
-> ./webapp
+docker build -t hn-reader .
+
+docker-compose up -d

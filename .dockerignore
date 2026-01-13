@@ -1,0 +1,17 @@
+# Source files
+*.go
+go.mod
+go.sum
+
+# Database (will be created at runtime)
+*.db
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+
+# Documentation
+README.md

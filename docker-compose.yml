@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  hn-reader:
+    image: hn-reader
+    container_name: hn-reader
+    restart: unless-stopped
+    ports:
+      - "2845:8080"
+    volumes:
+      - /var/www/hn-reader/db:/app/db
+    environment:
+      - TZ=America/Los_Angeles
+      - PORT=8080
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

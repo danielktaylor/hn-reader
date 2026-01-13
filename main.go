@@ -101,8 +101,13 @@ var httpClient = &http.Client{
 
 // initDB initializes the SQLite database
 func initDB() error {
+	// Create db directory if it doesn't exist
+	if err := os.MkdirAll("db", 0755); err != nil {
+		return fmt.Errorf("failed to create db directory: %w", err)
+	}
+
 	var err error
-	db, err = sql.Open("sqlite3", "./hn_reader.db")
+	db, err = sql.Open("sqlite3", "./db/hn_reader.db")
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
