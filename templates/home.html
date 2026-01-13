@@ -69,45 +69,49 @@
             padding: 16px 0;
             border-bottom: 1px solid #eee;
             transition: background 0.2s;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
         }
-        
+
         .article:last-child {
             border-bottom: none;
         }
-        
+
         .article.highlighted {
             background: #fff3cd;
             margin: 0 -16px;
             padding: 16px;
         }
-        
+
         .article-content {
-            margin-bottom: 10px;
+            flex: 1;
+            min-width: 0;
         }
-        
+
         .article-title {
             font-size: 17px;
             margin-bottom: 8px;
             line-height: 1.4;
         }
-        
+
         .article-title a {
             color: #0066cc;
             text-decoration: none;
             display: block;
             padding: 6px 0;
         }
-        
+
         .article-title a:active {
             opacity: 0.7;
         }
-        
+
         .article-meta {
             font-size: 14px;
             color: #666;
-            margin-bottom: 10px;
+            margin-bottom: 0;
         }
-        
+
         .article-meta a {
             color: #ff6600;
             text-decoration: none;
@@ -115,31 +119,44 @@
             padding: 6px 10px;
             display: inline-block;
         }
-        
+
         .article-meta a:active {
             opacity: 0.7;
         }
-        
+
         .read-button {
             background: #28a745;
             color: white;
             border: none;
-            padding: 10px 16px;
-            border-radius: 6px;
+            padding: 0;
+            border-radius: 50%;
             cursor: pointer;
-            font-size: 14px;
-            width: 100%;
-            font-weight: 600;
+            font-size: 20px;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2px;
         }
-        
+
+        .read-button .text {
+            display: none;
+        }
+
+        .read-button .icon {
+            display: inline;
+        }
+
         .read-button:active {
             background: #218838;
         }
-        
+
         .read-button.unread {
             background: #6c757d;
         }
-        
+
         .read-button.unread:active {
             background: #5a6268;
         }
@@ -283,22 +300,31 @@
                 border-radius: 4px;
                 font-size: 12px;
                 width: auto;
+                height: auto;
                 white-space: nowrap;
                 font-weight: normal;
             }
-            
+
+            .read-button .icon {
+                display: none;
+            }
+
+            .read-button .text {
+                display: inline;
+            }
+
             .read-button:hover {
                 background: #218838;
             }
-            
+
             .read-button:active {
                 background: #28a745;
             }
-            
+
             .read-button.unread:hover {
                 background: #5a6268;
             }
-            
+
             .read-button.unread:active {
                 background: #6c757d;
             }
@@ -350,7 +376,10 @@
                         <a href="{{.CommentLink}}" target="_blank" onclick="highlightArticle({{.ID}})">comments</a>
                     </div>
                 </div>
-                <button class="read-button" onclick="toggleRead({{.ID}}, this); event.stopPropagation();">Mark Read</button>
+                <button class="read-button" onclick="toggleRead({{.ID}}, this); event.stopPropagation();">
+                    <span class="icon">✓</span>
+                    <span class="text">Mark Read</span>
+                </button>
             </div>
             {{end}}
         {{else}}
@@ -396,18 +425,23 @@
             const article = document.getElementById('article-' + id);
             const isRead = article.dataset.read === 'true';
             const newReadState = !isRead;
-            
+
             fetch(`/mark-read?id=${id}&read=${newReadState}`, {
                 method: 'POST'
             })
             .then(response => response.json())
             .then(data => {
                 article.dataset.read = newReadState;
+                const iconSpan = button.querySelector('.icon');
+                const textSpan = button.querySelector('.text');
+
                 if (newReadState) {
-                    button.textContent = 'Mark Unread';
+                    if (iconSpan) iconSpan.textContent = '↶';
+                    if (textSpan) textSpan.textContent = 'Mark Unread';
                     button.classList.add('unread');
                 } else {
-                    button.textContent = 'Mark Read';
+                    if (iconSpan) iconSpan.textContent = '✓';
+                    if (textSpan) textSpan.textContent = 'Mark Read';
                     button.classList.remove('unread');
                 }
             })
