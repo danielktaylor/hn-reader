@@ -45,11 +45,21 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .article {
-            padding: 15px 0;
+            padding: 15px;
             border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
         .article:last-child {
             border-bottom: none;
+        }
+        .article.highlighted {
+            background: #fff3cd;
+        }
+        .article-content {
+            flex: 1;
         }
         .article-title {
             font-size: 16px;
@@ -74,6 +84,25 @@
         .article-meta a:hover {
             text-decoration: underline;
         }
+        .read-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .read-button:hover {
+            background: #218838;
+        }
+        .read-button.unread {
+            background: #6c757d;
+        }
+        .read-button.unread:hover {
+            background: #5a6268;
+        }
         .no-articles {
             text-align: center;
             padding: 40px;
@@ -97,7 +126,7 @@
         <h1>{{.Title}}</h1>
         <div class="info">
             <p>Current time: {{.CurrentTime}}</p>
-            <p>Articles in database: {{len .Articles}}</p>
+            <p>Unread articles: {{len .Articles}}</p>
             <button class="sync-button" onclick="syncFeed()">Sync Latest Feed</button>
             <div id="status" class="status"></div>
         </div>
@@ -107,19 +136,22 @@
         <h2>Hacker News Articles</h2>
         {{if .Articles}}
             {{range .Articles}}
-            <div class="article">
-                <div class="article-title">
-                    <a href="{{.ArticleLink}}" target="_blank">{{.Title}}</a>
+            <div class="article" id="article-{{.ID}}" data-read="false">
+                <div class="article-content">
+                    <div class="article-title">
+                        <a href="{{.ArticleLink}}" target="_blank" onclick="highlightArticle({{.ID}})">{{.Title}}</a>
+                    </div>
+                    <div class="article-meta">
+                        <span class="relative-date" data-date="{{.Date}}">{{.Date}}</span>
+                        <a href="{{.CommentLink}}" target="_blank" onclick="highlightArticle({{.ID}})">comments</a>
+                    </div>
                 </div>
-                <div class="article-meta">
-                    {{.Date}}
-                    <a href="{{.CommentLink}}" target="_blank">comments</a>
-                </div>
+                <button class="read-button" onclick="toggleRead({{.ID}}, this)">Mark Read</button>
             </div>
             {{end}}
         {{else}}
             <div class="no-articles">
-                No articles yet. Click "Sync Latest Feed" to fetch articles.
+                No unread articles. Click "Sync Latest Feed" to fetch new articles.
             </div>
         {{end}}
     </div>
@@ -144,6 +176,77 @@
                     statusDiv.style.color = '#721c24';
                 });
         }
+
+        function highlightArticle(id) {
+            // Clear all highlights
+            document.querySelectorAll('.article').forEach(article => {
+                article.classList.remove('highlighted');
+            });
+            
+            // Highlight the clicked article
+            const article = document.getElementById('article-' + id);
+            if (article) {
+                article.classList.add('highlighted');
+            }
+        }
+
+        function toggleRead(id, button) {
+            const article = document.getElementById('article-' + id);
+            const isRead = article.dataset.read === 'true';
+            const newReadState = !isRead;
+            
+            fetch(`/mark-read?id=${id}&read=${newReadState}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                article.dataset.read = newReadState;
+                if (newReadState) {
+                    button.textContent = 'Mark Unread';
+                    button.classList.add('unread');
+                } else {
+                    button.textContent = 'Mark Read';
+                    button.classList.remove('unread');
+                }
+            })
+            .catch(error => {
+                console.error('Error marking article:', error);
+            });
+        }
+
+        function formatRelativeDate(dateStr) {
+            // Parse the RFC1123 date from the RSS feed
+            const articleDate = new Date(dateStr);
+            const now = new Date();
+            
+            // Reset time to midnight for day comparison
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const articleDay = new Date(articleDate.getFullYear(), articleDate.getMonth(), articleDate.getDate());
+            
+            const diffTime = today - articleDay;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+                return 'Today';
+            } else if (diffDays === 1) {
+                return 'Yesterday';
+            } else if (diffDays < 7) {
+                return `${diffDays} days ago`;
+            } else if (diffDays < 30) {
+                const weeks = Math.floor(diffDays / 7);
+                return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+            } else {
+                return dateStr; // Fall back to original date for older items
+            }
+        }
+
+        // Convert all dates on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.relative-date').forEach(span => {
+                const originalDate = span.dataset.date;
+                span.textContent = formatRelativeDate(originalDate);
+            });
+        });
     </script>
 </body>
 </html>

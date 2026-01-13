@@ -86,6 +86,7 @@ type Article struct {
 	CommentLink string
 	Title       string
 	CreatedAt   time.Time
+	Read        bool
 }
 
 // TemplateData holds data to pass to templates
@@ -116,6 +117,7 @@ func initDB(logger *Logger) error {
 		article_link TEXT NOT NULL,
 		comment_link TEXT NOT NULL,
 		title TEXT NOT NULL,
+		read INTEGER DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(article_link, comment_link)
 	);`
@@ -256,11 +258,12 @@ func processFeed(logger *Logger) {
 	logger.Printf("Feed processing complete. Processed %d new articles", newArticles)
 }
 
-// getAllArticles retrieves all articles from the database
+// getAllArticles retrieves all unread articles from the database
 func getAllArticles() ([]Article, error) {
 	rows, err := db.Query(`
-		SELECT id, date, article_link, comment_link, title, created_at
+		SELECT id, date, article_link, comment_link, title, read, created_at
 		FROM articles
+		WHERE read = 0
 		ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -271,14 +274,26 @@ func getAllArticles() ([]Article, error) {
 	var articles []Article
 	for rows.Next() {
 		var a Article
-		err := rows.Scan(&a.ID, &a.Date, &a.ArticleLink, &a.CommentLink, &a.Title, &a.CreatedAt)
+		var readInt int
+		err := rows.Scan(&a.ID, &a.Date, &a.ArticleLink, &a.CommentLink, &a.Title, &readInt, &a.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
+		a.Read = readInt == 1
 		articles = append(articles, a)
 	}
 
 	return articles, nil
+}
+
+// markArticleRead marks an article as read or unread
+func markArticleRead(id int, read bool) error {
+	readInt := 0
+	if read {
+		readInt = 1
+	}
+	_, err := db.Exec(`UPDATE articles SET read = ? WHERE id = ?`, readInt, id)
+	return err
 }
 
 // Handler functions
@@ -331,6 +346,35 @@ func apiDataHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, data, time.Now().Format(time.RFC3339), r.Method)
 }
 
+func markReadHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+	readStr := r.URL.Query().Get("read")
+
+	if idStr == "" || readStr == "" {
+		http.Error(w, "Missing id or read parameter", http.StatusBadRequest)
+		return
+	}
+
+	id := 0
+	fmt.Sscanf(idStr, "%d", &id)
+	read := readStr == "true"
+
+	err := markArticleRead(id, read)
+	if err != nil {
+		http.Error(w, "Failed to update article", http.StatusInternalServerError)
+		log.Printf("Error updating article: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"status": "success"}`)
+}
+
 func main() {
 	logger := NewLogger()
 	logger.Println("Starting web server...")
@@ -349,6 +393,7 @@ func main() {
 	// Register routes with logging middleware
 	http.HandleFunc("/", loggingMiddleware(logger, homeHandler))
 	http.HandleFunc("/sync", loggingMiddleware(logger, syncHandler(logger)))
+	http.HandleFunc("/mark-read", loggingMiddleware(logger, markReadHandler))
 	http.HandleFunc("/health", loggingMiddleware(logger, healthHandler))
 	http.HandleFunc("/api/data", loggingMiddleware(logger, apiDataHandler))
 

@@ -4,7 +4,7 @@ A simple interface for reading the top 10 daily Hacker News articles from [Hacke
 
 ## Running:
 
-> ./webapp
+> go run main.go
 
 ## Building:
 
@@ -12,3 +12,7 @@ A simple interface for reading the top 10 daily Hacker News articles from [Hacke
 go mod download
 go build -o webapp
 ```
+
+Then, to run: 
+
+> ./webapp
