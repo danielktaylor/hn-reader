@@ -13,8 +13,9 @@ WORKDIR /app
 # Copy pre-built binary
 COPY hn-reader /app/hn-reader
 
-# Copy templates directory
+# Copy templates and static directories
 COPY templates /app/templates
+COPY static /app/static
 
 # Ensure binary is executable
 RUN chmod +x /app/hn-reader

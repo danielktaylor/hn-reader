@@ -421,6 +421,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Serve static files (favicons, etc.)
+	fileServer := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fileServer))
+
 	// Register routes with logging middleware
 	http.HandleFunc("/", loggingMiddleware(homeHandler))
 	http.HandleFunc("/sync", loggingMiddleware(syncHandler))
