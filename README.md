@@ -16,3 +16,4 @@ CGO_ENABLED=1 GOOS=linux go build -o hn-reader
 docker build -t hn-reader .
 
 docker-compose up -d
+```
