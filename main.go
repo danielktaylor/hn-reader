@@ -254,7 +254,9 @@ func processFeed() {
 	}
 
 	newArticles := 0
-	for _, item := range rss.Channel.Items {
+	for i := len(rss.Channel.Items) - 1; i >= 0; i-- {
+		// Process items in reverse order to maintain chronological order
+		item := rss.Channel.Items[i]
 		articles := parseArticlesFromDescription(item.Description, item.PubDate)
 
 		for _, article := range articles {
@@ -287,7 +289,7 @@ func getAllArticles() ([]Article, error) {
 		SELECT id, date, article_link, comment_link, title, read, created_at
 		FROM articles
 		WHERE read = 0
-		ORDER BY created_at ASC, id ASC
+		ORDER BY created_at DESC, id DESC
 	`)
 	if err != nil {
 		return nil, err
