@@ -19,3 +19,5 @@ docker build -t hn-reader .
 
 docker compose up -d
 ```
+
+Verify that `/var/www/hn-reader/db` is created on the host.
