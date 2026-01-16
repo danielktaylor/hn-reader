@@ -1,10 +1,11 @@
 FROM debian:trixie-slim
 
-# Install SQLite runtime library and ca-certificates
+# Install SQLite runtime library, ca-certificates, and wget for health checks
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libsqlite3-0 \
-    ca-certificates && \
+    ca-certificates \
+    wget && \
     rm -rf /var/lib/apt/lists/*
 
 # Create app directory
