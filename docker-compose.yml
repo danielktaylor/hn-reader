@@ -6,7 +6,7 @@ services:
     ports:
       - "2845:8080"
     volumes:
-      - /var/www/hn-reader/db:/app/db
+      - ${HOME}/volumes/hn-reader/db:/app/db
     environment:
       - TZ=America/Los_Angeles
       - PORT=8080
