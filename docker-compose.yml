@@ -3,8 +3,8 @@ services:
     image: hn-reader
     container_name: hn-reader
     restart: unless-stopped
-    ports:
-      - "2845:8080"
+    expose:
+      - "8080"
     volumes:
       - ${HOME}/volumes/hn-reader/db:/app/db
     environment:
