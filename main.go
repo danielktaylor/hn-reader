@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"html/template"
@@ -321,6 +322,101 @@ func markArticleRead(id int, read bool) error {
 	return err
 }
 
+func addArticleHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Link string `json:"link"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	id := extractHNID(req.Link)
+	if id == "" {
+		http.Error(w, "Invalid HN link. Please provide a link like https://news.ycombinator.com/item?id=12345", http.StatusBadRequest)
+		return
+	}
+
+	article, err := fetchHNItem(id)
+	if err != nil {
+		slog.Error("Error fetching HN item", "error", err, "id", id)
+		http.Error(w, "Failed to fetch HN item: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	inserted, err := saveArticle(article)
+	if err != nil {
+		slog.Error("Error saving article", "error", err, "title", article.Title)
+		http.Error(w, "Failed to save article", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if inserted {
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprintf(w, `{"status": "success", "message": "Article added"}`)
+	} else {
+		fmt.Fprintf(w, `{"status": "exists", "message": "Article already exists"}`)
+	}
+}
+
+func extractHNID(link string) string {
+	if strings.Contains(link, "id=") {
+		parts := strings.Split(link, "id=")
+		if len(parts) > 1 {
+			id := parts[1]
+			if end := strings.IndexAny(id, "&/ "); end != -1 {
+				id = id[:end]
+			}
+			return id
+		}
+	}
+	return ""
+}
+
+func fetchHNItem(id string) (Article, error) {
+	url := fmt.Sprintf("https://hn.algolia.com/api/v1/items/%s", id)
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return Article{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return Article{}, fmt.Errorf("HN API returned status %d", resp.StatusCode)
+	}
+
+	var item struct {
+		Title string `json:"title"`
+		URL   string `json:"url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&item); err != nil {
+		return Article{}, err
+	}
+
+	if item.Title == "" {
+		return Article{}, fmt.Errorf("could not find title for item %s", id)
+	}
+
+	articleLink := item.URL
+	commentLink := fmt.Sprintf("https://news.ycombinator.com/item?id=%s", id)
+	if articleLink == "" {
+		articleLink = commentLink
+	}
+
+	return Article{
+		Title:       item.Title,
+		ArticleLink: articleLink,
+		CommentLink: commentLink,
+		Date:        time.Now().Format(time.RFC1123Z),
+	}, nil
+}
+
 // Handler functions
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -430,6 +526,7 @@ func main() {
 	// Register routes with logging middleware
 	http.HandleFunc("/", loggingMiddleware(homeHandler))
 	http.HandleFunc("/sync", loggingMiddleware(syncHandler))
+	http.HandleFunc("/add-article", loggingMiddleware(addArticleHandler))
 	http.HandleFunc("/mark-read", loggingMiddleware(markReadHandler))
 	http.HandleFunc("/health", loggingMiddleware(healthHandler))
 	http.HandleFunc("/api/data", loggingMiddleware(apiDataHandler))

@@ -64,8 +64,30 @@
         .sync-button:active {
             background: #e55a00;
         }
-        
+
+        .add-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .add-button:hover {
+            background: #5a6268;
+        }
+
+        .add-button:active {
+            background: #4e555b;
+        }
+
         .articles {
+
             background: white;
             padding: 16px;
             border-radius: 10px;
@@ -242,8 +264,19 @@
             .sync-button:active {
                 background: #ff6600;
             }
-            
+
+            .add-button {
+                padding: 10px 20px;
+                border-radius: 4px;
+                font-size: 14px;
+                width: auto;
+                font-weight: normal;
+                margin-top: 0;
+                margin-left: 10px;
+            }
+
             .articles {
+
                 padding: 20px;
                 border-radius: 8px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -365,6 +398,7 @@
             <p class="last-sync">Not synced yet</p>
             {{end}}
             <button class="sync-button" onclick="syncFeed()">Sync Latest Feed</button>
+            <button class="add-button" onclick="addArticle()">Add Article</button>
             <div id="status" class="status"></div>
         </div>
     </div>
@@ -415,6 +449,42 @@
                     statusDiv.style.background = '#f8d7da';
                     statusDiv.style.color = '#721c24';
                 });
+        }
+
+        function addArticle() {
+            const link = prompt('Paste Hacker News link (e.g. https://news.ycombinator.com/item?id=47838703):');
+            if (!link) return;
+
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = 'Adding article...';
+            statusDiv.className = 'status success';
+            statusDiv.style.display = 'block';
+
+            fetch('/add-article', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ link: link })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' || data.status === 'exists') {
+                    statusDiv.textContent = data.message;
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    statusDiv.textContent = 'Error: ' + data.message;
+                    statusDiv.style.background = '#f8d7da';
+                    statusDiv.style.color = '#721c24';
+                }
+            })
+            .catch(error => {
+                statusDiv.textContent = 'Error adding article: ' + error;
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+            });
         }
 
         function highlightArticle(id) {
