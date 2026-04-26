@@ -361,8 +361,24 @@ func addArticleHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		fmt.Fprintf(w, `{"status": "success", "message": "Article added"}`)
 	} else {
-		fmt.Fprintf(w, `{"status": "exists", "message": "Article already exists"}`)
+		// Article exists, mark it as unread and update timestamp so it shows up at the top
+		err := markArticleUnreadByLinks(article)
+		if err != nil {
+			slog.Error("Error updating existing article", "error", err, "link", article.ArticleLink)
+			http.Error(w, "Failed to update existing article", http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprintf(w, `{"status": "success", "message": "Article brought back to top"}`)
 	}
+}
+
+func markArticleUnreadByLinks(article Article) error {
+	_, err := db.Exec(`
+		UPDATE articles 
+		SET read = 0, date = ?, created_at = CURRENT_TIMESTAMP 
+		WHERE article_link = ? AND comment_link = ?
+	`, article.Date, article.ArticleLink, article.CommentLink)
+	return err
 }
 
 func extractHNID(link string) string {
